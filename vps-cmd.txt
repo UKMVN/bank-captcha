@@ -1,0 +1,32 @@
+
+cd /home/captcha
+
+# Update và cài đặt thư viện
+
+sudo yum update
+sudo yum install python3-devel
+sudo yum groupinstall 'development tools'
+
+# Mở môi trường python
+python3 -m venv venv
+. venv/bin/activate
+pip install --upgrade pip
+
+# Cài đặt thư viện
+pip install flask
+pip install flask_cors
+pip install tensorflow
+pip install numpy
+pip install matplotlib
+# Chạy file
+nohup python3 run.py &
+
+# Cách tắt server
+# tìm process đang chạy ẩn -> tìm pid -> tắt chạy
+ps -ef |grep nohup 
+kill pid 
+
+# Hủy đăng ký port
+netstat -tulnp
+# tìm port như khai báo trong file python ( 6868)
+kill pid

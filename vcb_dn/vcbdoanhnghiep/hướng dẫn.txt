@@ -1,0 +1,25 @@
+sudo yum install epel-release
+sudo yum install nodejs npm
+sudo npm install -g pm2
+tạo mục giaicaptcha ở folder home
+cd /home/giaicaptcha
+
+# Update và cài đặt thư viện
+
+sudo yum update
+sudo yum install python3-devel
+sudo yum groupinstall 'development tools'
+
+# Mở môi trường python
+python3 -m venv venv
+. venv/bin/activate
+pip install --upgrade pip
+
+# Cài đặt thư viện
+pip install flask
+pip install flask_cors
+pip install tensorflow // hoặc pip install --no-cache-dir tensorflow
+pip install numpy
+pip install matplotlib
+# Chạy file
+pm2 start run.py
