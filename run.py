@@ -44,6 +44,8 @@ characters_mb = ['K', 'M', 'C', 'e', 'g', 'k', 'u', 'z', 't', '3', 'U', 'a', '5'
                  'Q', '2', '4', 'Y', '-', 'h', '8', 'v', '6', 'd', 'b', 'n', 'p', 'P', 'E', 'c', 'm', 'D', 'B', '9',
                  'N', 'G']
 characters_bangiftcode = ['b', '8', '0', '4', '-', 'e', 'c', '6', '5', 'f', '7', '2', '9', 'd', '1', 'a', '3']
+characters_bidv_digibiz = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+characters_vcb_digibiz = ['2', '3', '4', '5', '6', '7', '8', '9', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'x', 'y', 'z']
 
 img_width = 320
 img_height = 80
@@ -65,6 +67,12 @@ num_to_char_garena = layers.StringLookup(vocabulary=char_to_num_garena.get_vocab
 num_to_char_mb = layers.StringLookup(vocabulary=char_to_num_mb.get_vocabulary(), mask_token=None, invert=True)
 num_to_char_bangiftcode = layers.StringLookup(vocabulary=char_to_num_bangiftcode.get_vocabulary(), mask_token=None,
                                               invert=True)
+
+char_to_num_bidv_digibiz = layers.StringLookup(vocabulary=list(characters_bidv_digibiz), mask_token=None)
+num_to_char_bidv_digibiz = layers.StringLookup(vocabulary=char_to_num_bidv_digibiz.get_vocabulary(), mask_token=None, invert=True)
+
+char_to_num_vcb_digibiz = layers.StringLookup(vocabulary=list(characters_vcb_digibiz), mask_token=None)
+num_to_char_vcb_digibiz = layers.StringLookup(vocabulary=char_to_num_vcb_digibiz.get_vocabulary(), mask_token=None, invert=True)
 
 
 # Đọc ảnh base64 và mã hóa
@@ -100,6 +108,20 @@ def decode_batch_predictions(pred, type):
             res = tf.strings.reduce_join(num_to_char_garena(res)).numpy().decode("utf-8")
         elif type in "bangiftcode":
             res = tf.strings.reduce_join(num_to_char_bangiftcode(res)).numpy().decode("utf-8")
+        elif type in "vcbdigibiz":
+            input_len = np.ones(pred.shape[0]) * pred.shape[1]
+            results = keras.backend.ctc_decode(pred, input_length=input_len, greedy=True)[0][0][:, :max_length]
+            for res in results:
+                res = tf.strings.reduce_join(num_to_char_vcb_digibiz(res)).numpy().decode("utf-8")
+                output_text.append(res)
+            return output_text
+        elif type in "bidvdigibiz":
+            input_len = np.ones(pred.shape[0]) * pred.shape[1]
+            results = keras.backend.ctc_decode(pred, input_length=input_len, greedy=True)[0][0][:, :max_length]
+            for res in results:
+                res = tf.strings.reduce_join(num_to_char_bidv_digibiz(res)).numpy().decode("utf-8")
+                output_text.append(res)
+            return output_text
         else:
             res = tf.strings.reduce_join(num_to_char_viettel(res)).numpy().decode("utf-8")
         output_text.append(res)
@@ -161,6 +183,23 @@ json_file_bangiftcode.close()
 loaded_model_bangiftcode = model_from_json(loaded_model_json)
 loaded_model_bangiftcode.load_weights("model_bangiftcode.h5")
 
+
+def load_model_sieuthicode(file):
+    # JSON format
+    xfile = os.path.splitext(file)
+    if xfile[1] == ".json":
+        with open(file, "r") as json:
+            json_model = json.read()
+        model = keras.models.model_from_json(json_model)
+        model.load_weights(xfile[0] + ".wgt")
+    # ONNX format
+    elif xfile[1] == ".onnx":
+        raise Exception("LoadModel; ONNX format not supported yet")
+        model = None
+    # TF/Keras format
+    else:
+        model = keras.models.load_model(file, custom_objects={'leaky_relu': tf.nn.leaky_relu})
+    return model
 
 # hàm để truy cập: 127.0.0.1/run -> 127.0.0.1 là ip server
 @app.route("/api/captcha/vietcombank", methods=["POST"])
@@ -286,6 +325,38 @@ def digital_otp_msb():
     otp = pytesseract.image_to_string(image, lang='eng',
                                       config='-c tessedit_char_whitelist=0123456789')
     return jsonify(status=True, captcha=otp.strip())
+
+
+model_vcbdigibiz = load_model_sieuthicode("./vcb_dn/vcb.json")
+model_bidvdigibiz = load_model_sieuthicode("./dn_bidv/bidv.json")
+
+
+@app.route("/api/captcha/vcbdigibiz", methods=["POST"])
+@cross_origin()
+def vcb_vcbdigibiz():
+    content = request.json
+    imgstring = content['base64']
+    image_encode = encode_base64x(imgstring.replace("+", "-").replace("/", "_"))["image"]
+    listImage = np.array([image_encode])
+    preds = model_vcbdigibiz.predict(listImage)
+    pred_texts = decode_batch_predictions(preds, "vcbdigibiz")
+    captcha = pred_texts[0].replace('[UNK]', '').replace('-', '')
+    response = jsonify(status=True, captcha=captcha)
+    return response
+
+
+@app.route("/api/captcha/bidvdigibiz", methods=["POST"])
+@cross_origin()
+def bidv_bidvdigibiz():
+    content = request.json
+    imgstring = content['base64']
+    image_encode = encode_base64x(imgstring.replace("+", "-").replace("/", "_"))["image"]
+    listImage = np.array([image_encode])
+    preds = model_bidvdigibiz.predict(listImage)
+    pred_texts = decode_batch_predictions(preds, "bidvdigibiz")
+    captcha = pred_texts[0].replace('[UNK]', '').replace('-', '')
+    response = jsonify(status=True, captcha=captcha)
+    return response
 
 
 # Chạy server
