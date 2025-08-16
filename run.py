@@ -143,7 +143,7 @@ class CTCLayer(layers.Layer):
 # loaded_model_vcb = model_from_json(loaded_model_json)
 # loaded_model_vcb.load_weights("model_vcb.h5")
 # loaded_model_vcb.load_weights("vcb_model_quannguyen.h5")
-loaded_model_vcb = keras.models.load_model("vcb_model_quannguyen.h5", custom_objects={"CTCLayer": CTCLayer})
+loaded_model_vcb = keras.models.load_model("vcb_model_quannguyen.h5", custom_objects={"CTCLayer": CTCLayer}, compile=False)
 prediction_model = keras.models.Model(
     loaded_model_vcb.get_layer(name="image").input, loaded_model_vcb.get_layer(name="dense2").output
 )
